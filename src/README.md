@@ -1,3 +1,10 @@
+# 启动
+```
+RUST_LOG=debug cargo run
+```
+
+# 使用
+
 ### 302 Redirect
 
 ```
