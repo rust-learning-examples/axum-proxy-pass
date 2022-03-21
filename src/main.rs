@@ -41,8 +41,8 @@ async fn main() {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::debug!("listening on {}", addr);
     axum::Server::bind(&addr)
-        // .http1_preserve_header_case(true)
-        // .http1_title_case_headers(true)
+        .http1_preserve_header_case(true)
+        .http1_title_case_headers(true)
         .serve(app.into_make_service())
         .await
         .unwrap();
@@ -58,10 +58,10 @@ async fn redirect_handler(Path(origin): Path<String>, Query(_params): Query<Valu
 
 // https://github.com/tokio-rs/axum/blob/main/examples/reverse-proxy/src/main.rs
 async fn proxy_handler(Path(origin): Path<String>, Extension(client): Extension<Client<HttpConnector, Body>>, mut req: Request<Body>) -> Response<Body> {
-    let origin = origin.strip_prefix("/").unwrap();
     println!("get_handler called {:?}, req: {:?}", origin, req);
+    let origin = origin.strip_prefix("/").unwrap();
     let target_uri = get_full_url(&origin, &req);
-    println!("uri: {:?}", target_uri);
+    // println!("uri: {:?}", target_uri);
     *req.uri_mut() = target_uri;
     // 自定义追加header
     // req.headers_mut().insert("HOST", HeaderValue::from_str(origin).unwrap());
