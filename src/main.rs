@@ -16,6 +16,7 @@ use axum::{
 };
 use tower_http::cors::{CorsLayer, Origin};
 use hyper::{client::{Client, HttpConnector}, Body};
+use hyper_tls::HttpsConnector;
 use serde_json::{Value};
 use std::net::SocketAddr;
 
@@ -24,12 +25,16 @@ async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
 
+    // let clinet = Client::new(); // only support http
+    let https = HttpsConnector::new();
+    let client = Client::builder().build::<_, Body>(https);
+
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/redirect/*__origin__", any(redirect_handler))
         .route("/proxy/*__origin__", any(proxy_handler))
-        .layer(Extension(Client::new()))
+        .layer(Extension(client))
         .layer(
             // see https://docs.rs/tower-http/latest/tower_http/cors/index.html
             // for more details
@@ -57,14 +62,14 @@ async fn redirect_handler(Path(origin): Path<String>, Query(_params): Query<Valu
 }
 
 // https://github.com/tokio-rs/axum/blob/main/examples/reverse-proxy/src/main.rs
-async fn proxy_handler(Path(origin): Path<String>, Extension(client): Extension<Client<HttpConnector, Body>>, mut req: Request<Body>) -> Response<Body> {
-    println!("get_handler called {:?}, req: {:?}", origin, req);
+async fn proxy_handler(Path(origin): Path<String>, Extension(client): Extension<Client<HttpsConnector<HttpConnector>, Body>>, mut req: Request<Body>) -> Response<Body> {
+    println!("get_handler called, req: {:?}", req);
     let origin = origin.strip_prefix("/").unwrap();
     let target_uri = get_full_url(&origin, &req);
     // println!("uri: {:?}", target_uri);
-    *req.uri_mut() = target_uri;
+    *req.uri_mut() = target_uri.clone();
     // 自定义追加header
-    // req.headers_mut().insert("HOST", HeaderValue::from_str(origin).unwrap());
+    req.headers_mut().insert("HOST", HeaderValue::from_str(target_uri.host().unwrap()).unwrap());
     client.request(req).await.unwrap()
 }
 
